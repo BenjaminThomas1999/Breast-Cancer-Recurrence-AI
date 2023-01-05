@@ -1,0 +1,923 @@
+{
+  "cells": [
+    {
+      "cell_type": "markdown",
+      "metadata": {
+        "id": "view-in-github",
+        "colab_type": "text"
+      },
+      "source": [
+        "<a href=\"https://colab.research.google.com/github/BenjaminThomas1999/Breast-Cancer-Recurrence-AI/blob/main/Colab%20Notebook\" target=\"_parent\"><img src=\"https://colab.research.google.com/assets/colab-badge.svg\" alt=\"Open In Colab\"/></a>"
+      ]
+    },
+    {
+      "cell_type": "markdown",
+      "metadata": {
+        "id": "2gKSzZWTqmuX"
+      },
+      "source": [
+        "# JHUB Module 4B Submission\n",
+        "##### *30318634 Lt Thomas*\n",
+        "<hr>\n",
+        "<br>\n",
+        "\n",
+        "This is my submission for Module 4B of the JHub Coding scheme in which I utilise several classification models in order to find the best model to analyse the data and determine likelyhood of breast cancer recurrence based on variables provided in the dataset. \n"
+      ]
+    },
+    {
+      "cell_type": "code",
+      "execution_count": null,
+      "metadata": {
+        "colab": {
+          "base_uri": "https://localhost:8080/"
+        },
+        "id": "1Ms1p8Jbqmuf",
+        "outputId": "6e479fe1-263e-4ea5-e73b-e15c647800b3"
+      },
+      "outputs": [
+        {
+          "output_type": "stream",
+          "name": "stdout",
+          "text": [
+            "Mounted at /content/gdrive\n"
+          ]
+        }
+      ],
+      "source": [
+        "# Fixed dependencies - do not remove or change.\n",
+        "import pytest\n",
+        "import pandas as pd\n",
+        "import numpy as np\n",
+        "import calendar\n",
+        "from google.colab import drive\n",
+        "drive.mount('/content/gdrive')\n"
+      ]
+    },
+    {
+      "cell_type": "code",
+      "execution_count": null,
+      "metadata": {
+        "id": "pvHPbwjcqmuh"
+      },
+      "outputs": [],
+      "source": [
+        "# Import data\n",
+        "\n",
+        "def import_local_data(file_path):\n",
+        "    \"\"\"This function needs to import the data file into collab and return a pandas dataframe\n",
+        "    \"\"\"\n",
+        "    raw_df = pd.read_csv(file_path).replace(\"?\", \"no\") \n",
+        "\n",
+        "    #raw_df = raw_df.str.contains(\"?\") == False\n",
+        "    #? is used as a placeholder for missing data in column 5. Missing data replaced with mode. Explained further below.\n",
+        "    return raw_df"
+      ]
+    },
+    {
+      "cell_type": "code",
+      "execution_count": null,
+      "metadata": {
+        "id": "YIruAXPqqmuh"
+      },
+      "outputs": [],
+      "source": [
+        "local_file_path = \"/content/gdrive/MyDrive/Colab Notebooks/breast-cancer.csv\""
+      ]
+    },
+    {
+      "cell_type": "code",
+      "execution_count": null,
+      "metadata": {
+        "id": "zrItzBYiqmuh"
+      },
+      "outputs": [],
+      "source": [
+        "# Dont change\n",
+        "raw_data = import_local_data(local_file_path)\n",
+        "X = raw_data.iloc[:, 0:-1].values\n",
+        "y = raw_data.iloc[:, -1].values"
+      ]
+    },
+    {
+      "cell_type": "markdown",
+      "metadata": {
+        "id": "YBBl33M4qmui"
+      },
+      "source": [
+        "### Conduct exploratory data analysis and explain your key findings - Examine the data, explain its key features and what they look like.  Highlight any fields that are anomalous."
+      ]
+    },
+    {
+      "cell_type": "markdown",
+      "source": [
+        "I have converted the .xls file to a .csv\n",
+        "\n",
+        "The data has been imported into a pandas dataframe and the data has been split into two numpy arrays: X is the features and y is the dependant variables. \n",
+        "\n",
+        "I have identified that I am missing some data in column 5, node-caps, which has two distinct features: \"yes\" or \"no\". \"no\" is by far the mode. (by 222 to 56) \n",
+        "\n",
+        "Instead of using sklearn to replace missing data, I have achieved the same effect here by using a .replace() function when reading the data.\n",
+        "\n",
+        "```\n",
+        "raw_df = pd.read_csv(file_path).replace(\"?\", \"no\") \n",
+        "```\n",
+        "\n",
+        "I recognise that I could use sklearn to create an imputer and transform the data but for a simple case like this it is easier and far more efficient to use a .replace() while achieving the same effect. I decided to use the mode instead of disregarding 8 rows of data.\n",
+        "\n",
+        "There is no other missing data."
+      ],
+      "metadata": {
+        "id": "3Rfhhku6KXJU"
+      }
+    },
+    {
+      "cell_type": "code",
+      "execution_count": null,
+      "metadata": {
+        "id": "M_J6FDEvqmui",
+        "colab": {
+          "base_uri": "https://localhost:8080/"
+        },
+        "outputId": "d772fa7d-9dbc-49f3-cb5c-afd7b51abd5d"
+      },
+      "outputs": [
+        {
+          "output_type": "stream",
+          "name": "stdout",
+          "text": [
+            "Possible values: {'no-recurrence-events', 'recurrence-events'}\n"
+          ]
+        }
+      ],
+      "source": [
+        "print(\"Possible values: \" + str(set(y)))"
+      ]
+    },
+    {
+      "cell_type": "markdown",
+      "source": [
+        "The dependant class has two possible values: \"no-recurrence-events\" or \"recurrence-events\"\n",
+        "<br>\n",
+        "Clearly this is a classification problem. I explore the features by opening the .csv file in google sheets."
+      ],
+      "metadata": {
+        "id": "ceBB91pJWPQ6"
+      }
+    },
+    {
+      "cell_type": "markdown",
+      "source": [
+        "There's a list data pre-processing that now needs to happen that is decribed below:\n",
+        "\n",
+        "0.   Column 0 currently describes ages in discrete ranges. These can be replaced by the halfway-age. 60-69 becomes 65, for example. (Not 64.5! In the moment before you turn 70, you could be described as being 69.999... years old while your age still being 69.)  \n",
+        "1.   Column 1 must undergo one hot encoding.\n",
+        "2. Column 2 needs to contain continuous values similar to point 0. Some numbers have also been replaced with the month. (For example 10-14 has become Oct-14) This is an easy fix.\n",
+        "3. Very similar processing must to happen to column 3 as for column 2.\n",
+        "4. For Column 4, yes/no become 1/0 respectively.\n",
+        "5. No processing required.\n",
+        "6. Right/Left become 1/0 respectively.\n",
+        "7. One hot encoding is required for Column 7.\n",
+        "8. Yes/No become 1/0 for Column 8.\n",
+        "9. The dependant column needs to be encoded.\n",
+        "\n",
+        "This preprocessing is achieved below. "
+      ],
+      "metadata": {
+        "id": "R11oHCZPTvNM"
+      }
+    },
+    {
+      "cell_type": "code",
+      "execution_count": null,
+      "metadata": {
+        "id": "0o85JFjeqmui"
+      },
+      "outputs": [],
+      "source": [
+        "age = 0\n",
+        "menopause = 1\n",
+        "tumor_size = 2\n",
+        "inv_nodes = 3\n",
+        "node_caps = 4\n",
+        "deg_malig = 5\n",
+        "breast = 6\n",
+        "breast_quad = 7\n",
+        "irradiated = 8\n",
+        "\n",
+        "def rangeToCont(feature, containsAgeRange=False, verbose=False): #range to continuous data while replacing month abbreviations.\n",
+        "  if verbose: print(feature)\n",
+        "  feature = feature.split(\"-\")\n",
+        "  if verbose: print(feature)\n",
+        "  \n",
+        "  for i in range(len(feature)): #check for intrusive dates that have been added in and replace with month index.\n",
+        "    try:\n",
+        "      feature[i] = int(feature[i])\n",
+        "    except ValueError:\n",
+        "      months = list(calendar.month_abbr)\n",
+        "      for month in months[1:]:\n",
+        "        if month in feature[i]:\n",
+        "          feature[i] = months.index(feature[i])\n",
+        "          break\n",
+        "  if verbose: print(feature)\n",
+        "  #if containsAgeRange:\n",
+        "    #feature[1] += 1\n",
+        "  return int((feature[0]+feature[1])/2)\n",
+        "\n",
+        "def binaryLabel(feature, labels): #turn yes/no to 1/0.\n",
+        "  feature = labels.index(feature)\n",
+        "\n",
+        "for i in range(len(X)):\n",
+        "  X[i][age] = rangeToCont(X[i][age], containsAgeRange=True)\n",
+        "  X[i][tumor_size] = rangeToCont(X[i][tumor_size])\n",
+        "  X[i][inv_nodes] = rangeToCont(X[i][inv_nodes])\n",
+        "  X[i][node_caps] = [\"no\", \"yes\"].index(X[i][node_caps])\n",
+        "  X[i][breast] = [\"left\", \"right\"].index(X[i][breast])\n",
+        "  X[i][irradiated] = [\"no\", \"yes\"].index(X[i][irradiated])\n",
+        "\n",
+        "\n",
+        "from sklearn.compose import ColumnTransformer\n",
+        "from sklearn.preprocessing import OneHotEncoder\n",
+        "ct = ColumnTransformer(transformers=[('encoder', OneHotEncoder(), [1, 7])], remainder='passthrough')\n",
+        "X = np.array(ct.fit_transform(X))\n",
+        "\n",
+        "yBinaryLabel = list(set(y))\n",
+        "for i in range(len(y)):\n",
+        "  y[i] = yBinaryLabel.index(y[i])\n",
+        "  #Recurrence events are 0, Non-Recurrence events are 1\n",
+        "y = y.astype(\"int\")"
+      ]
+    },
+    {
+      "cell_type": "code",
+      "source": [
+        "for i in range(len(X)):\n",
+        "  print(str(X[i]) + str(y[i]))"
+      ],
+      "metadata": {
+        "id": "2jCoUSs0k6n1",
+        "colab": {
+          "base_uri": "https://localhost:8080/"
+        },
+        "outputId": "cfa160dd-0cc2-4e95-eafa-f1f1e2352453"
+      },
+      "execution_count": null,
+      "outputs": [
+        {
+          "output_type": "stream",
+          "name": "stdout",
+          "text": [
+            "[0.0 0.0 1.0 0.0 0.0 1.0 0.0 0.0 0.0 44 17 1 1 3 1 0]1\n",
+            "[1.0 0.0 0.0 1.0 0.0 0.0 0.0 0.0 0.0 54 17 1 0 1 1 0]0\n",
+            "[1.0 0.0 0.0 0.0 1.0 0.0 0.0 0.0 0.0 54 37 1 0 2 0 0]1\n",
+            "[0.0 0.0 1.0 0.0 1.0 0.0 0.0 0.0 0.0 44 37 1 1 3 1 1]0\n",
+            "[0.0 0.0 1.0 0.0 0.0 0.0 0.0 0.0 1.0 44 32 4 1 2 0 0]1\n",
+            "[0.0 0.0 1.0 0.0 0.0 1.0 0.0 0.0 0.0 54 27 4 0 2 1 1]0\n",
+            "[1.0 0.0 0.0 0.0 0.0 1.0 0.0 0.0 0.0 54 42 1 0 3 0 0]0\n",
+            "[0.0 0.0 1.0 0.0 0.0 1.0 0.0 0.0 0.0 44 12 1 0 2 0 0]0\n",
+            "[0.0 0.0 1.0 0.0 0.0 0.0 0.0 1.0 0.0 44 2 1 0 2 1 0]0\n",
+            "[1.0 0.0 0.0 0.0 0.0 1.0 0.0 0.0 0.0 44 42 16 1 2 1 1]0\n",
+            "[0.0 0.0 1.0 0.0 1.0 0.0 0.0 0.0 0.0 54 27 1 0 2 0 0]0\n",
+            "[1.0 0.0 0.0 0.0 0.0 1.0 0.0 0.0 0.0 64 17 1 0 2 1 0]0\n",
+            "[1.0 0.0 0.0 1.0 0.0 0.0 0.0 0.0 0.0 54 32 1 0 1 1 0]0\n",
+            "[1.0 0.0 0.0 0.0 0.0 1.0 0.0 0.0 0.0 54 27 1 0 2 1 0]0\n",
+            "[0.0 0.0 1.0 0.0 1.0 0.0 0.0 0.0 0.0 44 27 1 0 2 0 1]1\n",
+            "[0.0 0.0 1.0 1.0 0.0 0.0 0.0 0.0 0.0 34 22 1 0 3 0 0]0\n",
+            "[0.0 0.0 1.0 0.0 0.0 1.0 0.0 0.0 0.0 54 12 4 0 1 1 0]0\n",
+            "[1.0 0.0 0.0 0.0 0.0 1.0 0.0 0.0 0.0 64 17 1 0 2 1 0]0\n",
+            "[0.0 0.0 1.0 0.0 0.0 1.0 0.0 0.0 0.0 54 42 1 0 2 0 0]0\n",
+            "[1.0 0.0 0.0 0.0 0.0 1.0 0.0 0.0 0.0 54 22 1 0 3 0 0]0\n",
+            "[0.0 1.0 0.0 0.0 1.0 0.0 0.0 0.0 0.0 54 22 1 0 1 0 0]1\n",
+            "[1.0 0.0 0.0 0.0 0.0 1.0 0.0 0.0 0.0 64 42 4 0 2 1 1]0\n",
+            "[1.0 0.0 0.0 0.0 1.0 0.0 0.0 0.0 0.0 54 17 1 0 2 1 0]0\n",
+            "[0.0 0.0 1.0 0.0 0.0 1.0 0.0 0.0 0.0 44 12 1 0 1 1 0]0\n",
+            "[0.0 0.0 1.0 0.0 1.0 0.0 0.0 0.0 0.0 34 17 7 1 3 0 1]1\n",
+            "[1.0 0.0 0.0 0.0 0.0 1.0 0.0 0.0 0.0 54 22 4 1 2 1 0]0\n",
+            "[1.0 0.0 0.0 0.0 1.0 0.0 0.0 0.0 0.0 54 12 1 0 2 1 0]0\n",
+            "[0.0 0.0 1.0 0.0 0.0 1.0 0.0 0.0 0.0 44 12 1 0 1 1 0]0\n",
+            "[1.0 0.0 0.0 0.0 1.0 0.0 0.0 0.0 0.0 64 32 4 1 3 0 0]0\n",
+            "[0.0 0.0 1.0 0.0 1.0 0.0 0.0 0.0 0.0 44 17 16 1 3 0 0]1\n",
+            "[1.0 0.0 0.0 1.0 0.0 0.0 0.0 0.0 0.0 64 32 1 0 3 1 0]1\n",
+            "[1.0 0.0 0.0 0.0 1.0 0.0 0.0 0.0 0.0 64 27 4 0 1 1 1]0\n",
+            "[1.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 1.0 54 27 1 0 3 0 0]0\n",
+            "[1.0 0.0 0.0 0.0 0.0 1.0 0.0 0.0 0.0 54 22 1 0 3 1 0]0\n",
+            "[0.0 0.0 1.0 0.0 1.0 0.0 0.0 0.0 0.0 44 32 1 0 1 0 1]1\n",
+            "[0.0 0.0 1.0 0.0 1.0 0.0 0.0 0.0 0.0 34 17 1 0 1 0 0]0\n",
+            "[0.0 0.0 1.0 0.0 0.0 1.0 0.0 0.0 0.0 44 12 1 0 2 1 0]0\n",
+            "[1.0 0.0 0.0 1.0 0.0 0.0 0.0 0.0 0.0 64 47 7 1 3 0 0]0\n",
+            "[1.0 0.0 0.0 0.0 1.0 0.0 0.0 0.0 0.0 44 22 1 0 3 0 0]0\n",
+            "[0.0 0.0 1.0 0.0 0.0 0.0 0.0 1.0 0.0 44 12 1 0 1 1 0]0\n",
+            "[0.0 0.0 1.0 0.0 1.0 0.0 0.0 0.0 0.0 34 37 1 0 3 0 0]1\n",
+            "[0.0 0.0 1.0 0.0 0.0 0.0 0.0 0.0 1.0 44 37 10 1 2 1 1]0\n",
+            "[1.0 0.0 0.0 0.0 1.0 0.0 0.0 0.0 0.0 64 27 1 0 2 1 0]0\n",
+            "[1.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 1.0 54 22 4 1 3 1 0]1\n",
+            "[0.0 0.0 1.0 0.0 1.0 0.0 0.0 0.0 0.0 34 17 1 0 1 0 0]0\n",
+            "[0.0 0.0 1.0 0.0 0.0 0.0 0.0 0.0 1.0 54 32 1 0 3 0 0]1\n",
+            "[1.0 0.0 0.0 0.0 0.0 1.0 0.0 0.0 0.0 64 12 1 0 2 1 1]0\n",
+            "[0.0 0.0 1.0 0.0 0.0 1.0 0.0 0.0 0.0 44 37 1 1 3 1 1]0\n",
+            "[0.0 0.0 1.0 0.0 0.0 1.0 0.0 0.0 0.0 54 52 1 1 2 1 1]0\n",
+            "[1.0 0.0 0.0 0.0 0.0 1.0 0.0 0.0 0.0 54 42 1 0 3 1 0]0\n",
+            "[1.0 0.0 0.0 0.0 1.0 0.0 0.0 0.0 0.0 74 17 10 0 1 0 1]1\n",
+            "[0.0 1.0 0.0 0.0 0.0 1.0 0.0 0.0 0.0 54 32 1 0 3 1 0]0\n",
+            "[0.0 0.0 1.0 1.0 0.0 0.0 0.0 0.0 0.0 44 2 1 0 3 0 0]0\n",
+            "[1.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 1.0 74 42 1 0 1 1 0]0\n",
+            "[0.0 0.0 1.0 0.0 0.0 0.0 0.0 1.0 0.0 44 27 1 0 2 0 1]0\n",
+            "[1.0 0.0 0.0 0.0 0.0 1.0 0.0 0.0 0.0 54 27 16 1 3 1 0]0\n",
+            "[0.0 0.0 1.0 0.0 1.0 0.0 0.0 0.0 0.0 54 22 1 0 1 0 0]0\n",
+            "[1.0 0.0 0.0 0.0 1.0 0.0 0.0 0.0 0.0 54 37 16 0 3 0 0]0\n",
+            "[1.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 1.0 54 52 1 0 1 1 0]0\n",
+            "[0.0 0.0 1.0 1.0 0.0 0.0 0.0 0.0 0.0 34 2 1 0 2 1 0]1\n",
+            "[1.0 0.0 0.0 0.0 1.0 0.0 0.0 0.0 0.0 54 42 7 1 3 0 1]1\n",
+            "[0.0 0.0 1.0 0.0 0.0 0.0 0.0 0.0 1.0 44 32 1 0 2 1 1]0\n",
+            "[1.0 0.0 0.0 0.0 0.0 1.0 0.0 0.0 0.0 44 22 1 0 3 0 0]0\n",
+            "[0.0 0.0 1.0 0.0 1.0 0.0 0.0 0.0 0.0 44 32 16 1 3 0 0]1\n",
+            "[1.0 0.0 0.0 0.0 0.0 1.0 0.0 0.0 0.0 44 22 1 0 2 1 0]1\n",
+            "[1.0 0.0 0.0 1.0 0.0 0.0 0.0 0.0 0.0 54 17 1 0 1 1 0]0\n",
+            "[0.0 0.0 1.0 0.0 1.0 0.0 0.0 0.0 0.0 34 27 1 0 2 1 0]0\n",
+            "[1.0 0.0 0.0 0.0 1.0 0.0 0.0 0.0 0.0 64 17 1 0 2 0 0]0\n",
+            "[0.0 0.0 1.0 0.0 0.0 1.0 0.0 0.0 0.0 54 52 10 1 2 1 0]1\n",
+            "[0.0 0.0 1.0 0.0 1.0 0.0 0.0 0.0 0.0 34 12 1 0 1 1 0]0\n",
+            "[0.0 0.0 1.0 0.0 1.0 0.0 0.0 0.0 0.0 54 27 4 1 3 0 1]1\n",
+            "[1.0 0.0 0.0 0.0 0.0 1.0 0.0 0.0 0.0 64 27 4 0 1 1 1]0\n",
+            "[1.0 0.0 0.0 0.0 1.0 0.0 0.0 0.0 0.0 64 12 1 0 1 1 0]0\n",
+            "[1.0 0.0 0.0 0.0 0.0 0.0 0.0 1.0 0.0 54 32 7 1 3 0 0]1\n",
+            "[0.0 0.0 1.0 0.0 0.0 0.0 0.0 1.0 0.0 34 27 7 1 3 0 1]1\n",
+            "[1.0 0.0 0.0 0.0 1.0 0.0 0.0 0.0 0.0 54 12 1 0 1 0 0]0\n",
+            "[0.0 0.0 1.0 0.0 1.0 0.0 0.0 0.0 0.0 54 17 1 0 1 0 0]0\n",
+            "[0.0 0.0 1.0 1.0 0.0 0.0 0.0 0.0 0.0 44 27 1 0 2 1 0]0\n",
+            "[0.0 0.0 1.0 0.0 0.0 0.0 0.0 0.0 1.0 44 27 1 0 3 0 0]1\n",
+            "[1.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 1.0 64 32 7 1 2 1 0]0\n",
+            "[0.0 1.0 0.0 0.0 1.0 0.0 0.0 0.0 0.0 54 17 1 0 2 0 0]0\n",
+            "[0.0 0.0 1.0 0.0 1.0 0.0 0.0 0.0 0.0 44 27 1 0 2 1 0]0\n",
+            "[0.0 0.0 1.0 0.0 0.0 1.0 0.0 0.0 0.0 44 32 1 0 1 1 0]0\n",
+            "[1.0 0.0 0.0 0.0 0.0 1.0 0.0 0.0 0.0 64 17 1 0 2 0 1]0\n",
+            "[0.0 0.0 1.0 1.0 0.0 0.0 0.0 0.0 0.0 34 2 1 0 2 1 0]0\n",
+            "[1.0 0.0 0.0 0.0 0.0 1.0 0.0 0.0 0.0 54 37 1 0 3 0 0]0\n",
+            "[0.0 0.0 1.0 0.0 0.0 1.0 0.0 0.0 0.0 44 42 1 0 1 1 0]0\n",
+            "[0.0 0.0 1.0 0.0 0.0 1.0 0.0 0.0 0.0 34 27 7 1 2 1 1]0\n",
+            "[1.0 0.0 0.0 0.0 1.0 0.0 0.0 0.0 0.0 54 22 1 0 1 1 0]0\n",
+            "[1.0 0.0 0.0 0.0 0.0 1.0 0.0 0.0 0.0 54 32 1 0 1 0 0]0\n",
+            "[1.0 0.0 0.0 0.0 0.0 1.0 0.0 0.0 0.0 64 22 1 0 1 1 0]1\n",
+            "[0.0 0.0 1.0 0.0 0.0 1.0 0.0 0.0 0.0 34 32 4 0 3 1 1]1\n",
+            "[0.0 1.0 0.0 0.0 0.0 1.0 0.0 0.0 0.0 54 22 1 0 1 0 0]1\n",
+            "[0.0 0.0 1.0 0.0 0.0 1.0 0.0 0.0 0.0 54 12 1 0 2 1 0]0\n",
+            "[1.0 0.0 0.0 0.0 0.0 1.0 0.0 0.0 0.0 54 22 1 0 2 1 0]0\n",
+            "[0.0 0.0 1.0 0.0 1.0 0.0 0.0 0.0 0.0 44 47 1 0 2 0 1]0\n",
+            "[0.0 0.0 1.0 0.0 0.0 1.0 0.0 0.0 0.0 34 42 1 0 1 0 0]1\n",
+            "[0.0 0.0 1.0 0.0 1.0 0.0 0.0 0.0 0.0 54 12 1 0 1 0 0]0\n",
+            "[1.0 0.0 0.0 0.0 0.0 1.0 0.0 0.0 0.0 64 32 1 0 3 1 1]1\n",
+            "[0.0 0.0 1.0 0.0 0.0 1.0 0.0 0.0 0.0 44 37 1 0 1 1 0]1\n",
+            "[0.0 0.0 1.0 0.0 1.0 0.0 0.0 0.0 0.0 44 22 4 1 2 0 1]1\n",
+            "[0.0 0.0 1.0 0.0 1.0 0.0 0.0 0.0 0.0 54 17 1 0 2 0 0]1\n",
+            "[1.0 0.0 0.0 0.0 1.0 0.0 0.0 0.0 0.0 54 32 1 0 3 1 0]0\n",
+            "[1.0 0.0 0.0 0.0 0.0 1.0 0.0 0.0 0.0 64 22 1 0 2 0 0]0\n",
+            "[0.0 0.0 1.0 0.0 0.0 0.0 0.0 1.0 0.0 44 22 1 0 1 0 0]0\n",
+            "[1.0 0.0 0.0 1.0 0.0 0.0 0.0 0.0 0.0 64 32 4 1 2 0 1]1\n",
+            "[1.0 0.0 0.0 0.0 1.0 0.0 0.0 0.0 0.0 64 22 4 0 2 0 1]1\n",
+            "[0.0 0.0 1.0 0.0 0.0 0.0 0.0 0.0 1.0 54 27 1 0 2 0 0]1\n",
+            "[1.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 1.0 54 32 1 0 1 1 0]0\n",
+            "[0.0 0.0 1.0 0.0 0.0 0.0 0.0 1.0 0.0 44 22 1 0 2 0 0]0\n",
+            "[1.0 0.0 0.0 0.0 0.0 1.0 0.0 0.0 0.0 64 17 1 0 1 1 0]0\n",
+            "[1.0 0.0 0.0 0.0 1.0 0.0 0.0 0.0 0.0 64 32 1 0 2 0 1]0\n",
+            "[0.0 0.0 1.0 0.0 0.0 1.0 0.0 0.0 0.0 34 32 1 0 2 0 0]0\n",
+            "[0.0 0.0 1.0 0.0 0.0 0.0 0.0 0.0 1.0 34 42 4 0 3 1 1]0\n",
+            "[1.0 0.0 0.0 1.0 0.0 0.0 0.0 0.0 0.0 64 7 1 0 1 0 0]0\n",
+            "[1.0 0.0 0.0 0.0 0.0 1.0 0.0 0.0 0.0 64 12 1 0 1 0 0]0\n",
+            "[0.0 0.0 1.0 0.0 0.0 1.0 0.0 0.0 0.0 44 32 7 1 3 1 0]1\n",
+            "[1.0 0.0 0.0 0.0 0.0 1.0 0.0 0.0 0.0 64 12 1 0 1 0 0]0\n",
+            "[0.0 0.0 1.0 0.0 0.0 1.0 0.0 0.0 0.0 44 37 10 1 2 1 1]0\n",
+            "[0.0 0.0 1.0 0.0 1.0 0.0 0.0 0.0 0.0 44 22 1 0 1 1 0]0\n",
+            "[0.0 0.0 1.0 0.0 0.0 0.0 0.0 0.0 1.0 44 32 1 1 3 1 0]1\n",
+            "[0.0 0.0 1.0 0.0 0.0 1.0 0.0 0.0 0.0 54 27 1 1 2 0 0]0\n",
+            "[0.0 0.0 1.0 0.0 1.0 0.0 0.0 0.0 0.0 44 17 1 0 2 0 0]0\n",
+            "[0.0 0.0 1.0 0.0 1.0 0.0 0.0 0.0 0.0 34 37 10 1 3 0 0]1\n",
+            "[0.0 0.0 1.0 0.0 0.0 0.0 0.0 1.0 0.0 34 12 1 0 2 0 0]0\n",
+            "[1.0 0.0 0.0 0.0 1.0 0.0 0.0 0.0 0.0 54 32 1 0 1 1 0]0\n",
+            "[1.0 0.0 0.0 0.0 0.0 1.0 0.0 0.0 0.0 64 32 1 0 2 0 0]0\n",
+            "[1.0 0.0 0.0 0.0 1.0 0.0 0.0 0.0 0.0 64 27 1 0 2 0 0]0\n",
+            "[0.0 0.0 1.0 0.0 0.0 1.0 0.0 0.0 0.0 44 17 1 0 2 0 0]1\n",
+            "[1.0 0.0 0.0 0.0 1.0 0.0 0.0 0.0 0.0 64 17 1 0 2 1 0]0\n",
+            "[0.0 0.0 1.0 0.0 0.0 0.0 0.0 1.0 0.0 44 32 1 0 2 0 0]0\n",
+            "[0.0 0.0 1.0 0.0 0.0 0.0 0.0 0.0 1.0 24 37 1 0 2 1 0]0\n",
+            "[0.0 0.0 1.0 0.0 0.0 0.0 0.0 0.0 1.0 44 32 1 0 3 1 0]1\n",
+            "[0.0 0.0 1.0 0.0 1.0 0.0 0.0 0.0 0.0 44 27 1 0 2 1 0]1\n",
+            "[0.0 0.0 1.0 0.0 1.0 0.0 0.0 0.0 0.0 34 32 1 0 3 0 0]0\n",
+            "[0.0 0.0 1.0 0.0 1.0 0.0 0.0 0.0 0.0 34 17 1 0 1 1 0]1\n",
+            "[1.0 0.0 0.0 1.0 0.0 0.0 0.0 0.0 0.0 54 2 1 0 1 1 0]0\n",
+            "[1.0 0.0 0.0 0.0 1.0 0.0 0.0 0.0 0.0 54 2 1 0 1 0 0]0\n",
+            "[1.0 0.0 0.0 0.0 0.0 1.0 0.0 0.0 0.0 64 52 1 0 3 1 0]1\n",
+            "[0.0 0.0 1.0 1.0 0.0 0.0 0.0 0.0 0.0 54 32 1 0 1 0 0]0\n",
+            "[1.0 0.0 0.0 0.0 1.0 0.0 0.0 0.0 0.0 64 22 25 1 3 0 1]1\n",
+            "[0.0 0.0 1.0 0.0 0.0 1.0 0.0 0.0 0.0 44 27 1 0 2 0 0]0\n",
+            "[0.0 0.0 1.0 0.0 0.0 1.0 0.0 0.0 0.0 44 32 4 0 2 1 0]1\n",
+            "[0.0 0.0 1.0 0.0 1.0 0.0 0.0 0.0 0.0 54 22 4 1 2 0 0]0\n",
+            "[1.0 0.0 0.0 1.0 0.0 0.0 0.0 0.0 0.0 54 17 1 1 2 0 1]0\n",
+            "[0.0 0.0 1.0 0.0 1.0 0.0 0.0 0.0 0.0 54 12 1 0 3 0 0]0\n",
+            "[0.0 0.0 1.0 0.0 0.0 1.0 0.0 0.0 0.0 34 32 10 0 2 1 1]1\n",
+            "[1.0 0.0 0.0 0.0 1.0 0.0 0.0 0.0 0.0 64 12 1 0 1 0 0]0\n",
+            "[0.0 0.0 1.0 0.0 1.0 0.0 0.0 0.0 0.0 44 42 1 0 2 1 0]0\n",
+            "[1.0 0.0 0.0 0.0 0.0 1.0 0.0 0.0 0.0 54 32 10 0 3 0 1]0\n",
+            "[0.0 0.0 1.0 0.0 1.0 0.0 0.0 0.0 0.0 44 52 1 0 2 1 1]1\n",
+            "[1.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 1.0 54 17 1 0 2 1 0]0\n",
+            "[1.0 0.0 0.0 0.0 1.0 0.0 0.0 0.0 0.0 54 42 4 1 2 0 0]0\n",
+            "[0.0 0.0 1.0 0.0 1.0 0.0 0.0 0.0 0.0 34 27 4 1 3 0 1]1\n",
+            "[1.0 0.0 0.0 0.0 1.0 0.0 0.0 0.0 0.0 64 12 1 0 2 0 0]0\n",
+            "[0.0 1.0 0.0 0.0 0.0 0.0 0.0 0.0 1.0 64 12 1 0 1 0 0]0\n",
+            "[0.0 0.0 1.0 0.0 0.0 1.0 0.0 0.0 0.0 34 32 1 0 2 0 0]1\n",
+            "[0.0 0.0 1.0 0.0 1.0 0.0 0.0 0.0 0.0 34 22 4 1 2 0 0]1\n",
+            "[1.0 0.0 0.0 0.0 0.0 1.0 0.0 0.0 0.0 54 12 1 0 1 1 0]0\n",
+            "[1.0 0.0 0.0 0.0 0.0 1.0 0.0 0.0 0.0 64 27 1 0 3 1 0]0\n",
+            "[1.0 0.0 0.0 0.0 0.0 1.0 0.0 0.0 0.0 54 27 4 1 3 1 0]0\n",
+            "[0.0 0.0 1.0 0.0 0.0 1.0 0.0 0.0 0.0 44 32 7 0 2 0 0]0\n",
+            "[1.0 0.0 0.0 0.0 1.0 0.0 0.0 0.0 0.0 64 52 1 0 2 0 0]0\n",
+            "[0.0 0.0 1.0 0.0 1.0 0.0 0.0 0.0 0.0 54 32 1 0 3 0 0]0\n",
+            "[1.0 0.0 0.0 0.0 1.0 0.0 0.0 0.0 0.0 44 22 4 0 3 1 1]1\n",
+            "[1.0 0.0 0.0 0.0 0.0 0.0 0.0 1.0 0.0 54 32 7 1 2 0 1]1\n",
+            "[1.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 1.0 64 27 4 0 2 1 0]1\n",
+            "[0.0 0.0 1.0 1.0 0.0 0.0 0.0 0.0 0.0 44 22 1 0 2 0 0]0\n",
+            "[0.0 0.0 1.0 0.0 0.0 1.0 0.0 0.0 0.0 44 22 1 0 2 0 0]0\n",
+            "[0.0 0.0 1.0 0.0 1.0 0.0 0.0 0.0 0.0 44 52 1 0 2 0 0]0\n",
+            "[1.0 0.0 0.0 1.0 0.0 0.0 0.0 0.0 0.0 54 22 1 0 2 1 0]1\n",
+            "[1.0 0.0 0.0 0.0 0.0 1.0 0.0 0.0 0.0 54 32 4 0 3 1 0]1\n",
+            "[1.0 0.0 0.0 0.0 1.0 0.0 0.0 0.0 0.0 44 27 1 0 2 0 0]0\n",
+            "[0.0 0.0 1.0 0.0 0.0 1.0 0.0 0.0 0.0 54 27 1 0 1 1 0]1\n",
+            "[0.0 0.0 1.0 0.0 0.0 1.0 0.0 0.0 0.0 44 42 4 1 3 1 1]0\n",
+            "[0.0 0.0 1.0 0.0 0.0 1.0 0.0 0.0 0.0 44 22 1 0 2 1 0]0\n",
+            "[0.0 0.0 1.0 0.0 0.0 1.0 0.0 0.0 0.0 44 22 4 0 2 1 0]0\n",
+            "[0.0 0.0 1.0 0.0 0.0 1.0 0.0 0.0 0.0 44 27 10 1 3 1 0]1\n",
+            "[0.0 0.0 1.0 0.0 1.0 0.0 0.0 0.0 0.0 44 27 1 0 2 1 0]1\n",
+            "[0.0 0.0 1.0 0.0 0.0 0.0 0.0 0.0 1.0 44 22 1 0 1 1 0]0\n",
+            "[0.0 0.0 1.0 0.0 0.0 0.0 0.0 0.0 1.0 34 42 1 0 2 1 0]0\n",
+            "[1.0 0.0 0.0 0.0 0.0 1.0 0.0 0.0 0.0 64 12 7 1 3 0 1]1\n",
+            "[0.0 0.0 1.0 0.0 1.0 0.0 0.0 0.0 0.0 44 37 1 0 1 0 0]0\n",
+            "[1.0 0.0 0.0 0.0 1.0 0.0 0.0 0.0 0.0 54 32 4 0 3 0 0]1\n",
+            "[0.0 0.0 1.0 0.0 1.0 0.0 0.0 0.0 0.0 44 7 1 0 1 0 1]0\n",
+            "[1.0 0.0 0.0 0.0 0.0 0.0 0.0 1.0 0.0 64 17 1 0 1 0 0]0\n",
+            "[0.0 0.0 1.0 0.0 0.0 0.0 0.0 0.0 1.0 44 32 1 0 3 1 0]0\n",
+            "[0.0 0.0 1.0 0.0 0.0 1.0 0.0 0.0 0.0 44 27 1 0 3 0 0]1\n",
+            "[1.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 1.0 54 7 1 0 2 1 0]0\n",
+            "[0.0 0.0 1.0 0.0 0.0 0.0 0.0 1.0 0.0 54 27 1 0 2 1 0]0\n",
+            "[0.0 0.0 1.0 0.0 0.0 0.0 0.0 0.0 1.0 54 27 1 0 2 0 0]1\n",
+            "[0.0 0.0 1.0 0.0 1.0 0.0 0.0 0.0 0.0 44 12 1 0 2 0 1]0\n",
+            "[1.0 0.0 0.0 0.0 1.0 0.0 0.0 0.0 0.0 64 37 7 1 3 0 0]1\n",
+            "[1.0 0.0 0.0 0.0 0.0 1.0 0.0 0.0 0.0 64 52 1 0 2 1 1]0\n",
+            "[0.0 0.0 1.0 0.0 0.0 1.0 0.0 0.0 0.0 44 27 1 0 2 1 0]0\n",
+            "[0.0 0.0 1.0 1.0 0.0 0.0 0.0 0.0 0.0 34 22 4 0 2 1 0]0\n",
+            "[0.0 0.0 1.0 0.0 0.0 1.0 0.0 0.0 0.0 34 32 1 0 1 1 0]1\n",
+            "[0.0 1.0 0.0 0.0 1.0 0.0 0.0 0.0 0.0 64 32 1 0 1 0 0]0\n",
+            "[0.0 0.0 1.0 0.0 0.0 0.0 0.0 1.0 0.0 44 17 13 0 3 1 1]0\n",
+            "[1.0 0.0 0.0 0.0 1.0 0.0 0.0 0.0 0.0 64 22 1 0 3 1 0]1\n",
+            "[0.0 0.0 1.0 0.0 0.0 0.0 0.0 1.0 0.0 34 7 1 0 2 0 0]0\n",
+            "[0.0 0.0 1.0 0.0 0.0 1.0 0.0 0.0 0.0 44 32 1 0 3 0 0]0\n",
+            "[1.0 0.0 0.0 0.0 1.0 0.0 0.0 0.0 0.0 64 32 1 0 3 0 0]0\n",
+            "[0.0 0.0 1.0 0.0 0.0 0.0 0.0 1.0 0.0 44 27 1 0 1 1 0]0\n",
+            "[0.0 0.0 1.0 0.0 0.0 0.0 0.0 1.0 0.0 44 27 1 0 1 0 0]0\n",
+            "[1.0 0.0 0.0 0.0 1.0 0.0 0.0 0.0 0.0 64 42 4 1 3 1 0]1\n",
+            "[1.0 0.0 0.0 0.0 1.0 0.0 0.0 0.0 0.0 54 27 1 0 2 0 0]0\n",
+            "[0.0 0.0 1.0 0.0 0.0 1.0 0.0 0.0 0.0 54 32 1 0 3 1 1]1\n",
+            "[1.0 0.0 0.0 0.0 1.0 0.0 0.0 0.0 0.0 44 32 4 0 3 0 0]1\n",
+            "[0.0 0.0 1.0 0.0 1.0 0.0 0.0 0.0 0.0 44 27 1 0 1 1 1]0\n",
+            "[1.0 0.0 0.0 0.0 0.0 0.0 0.0 1.0 0.0 44 27 13 1 3 0 1]1\n",
+            "[0.0 0.0 1.0 0.0 1.0 0.0 0.0 0.0 0.0 44 42 1 0 1 0 0]1\n",
+            "[0.0 0.0 1.0 0.0 1.0 0.0 0.0 0.0 0.0 44 22 1 0 2 0 0]0\n",
+            "[1.0 0.0 0.0 0.0 0.0 0.0 0.0 1.0 0.0 54 27 1 0 1 0 0]0\n",
+            "[0.0 0.0 1.0 0.0 0.0 1.0 0.0 0.0 0.0 44 22 1 0 2 1 0]0\n",
+            "[1.0 0.0 0.0 0.0 0.0 1.0 0.0 0.0 0.0 74 42 1 0 1 1 0]0\n",
+            "[1.0 0.0 0.0 0.0 0.0 1.0 0.0 0.0 0.0 64 27 1 0 3 0 0]1\n",
+            "[0.0 0.0 1.0 0.0 1.0 0.0 0.0 0.0 0.0 54 27 1 0 2 0 0]0\n",
+            "[1.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 1.0 64 47 1 0 1 1 1]1\n",
+            "[1.0 0.0 0.0 0.0 0.0 1.0 0.0 0.0 0.0 54 22 1 1 2 1 0]0\n",
+            "[1.0 0.0 0.0 0.0 1.0 0.0 0.0 0.0 0.0 54 27 1 0 1 0 0]0\n",
+            "[1.0 0.0 0.0 0.0 0.0 1.0 0.0 0.0 0.0 54 22 1 0 3 0 0]0\n",
+            "[0.0 0.0 1.0 0.0 1.0 0.0 0.0 0.0 0.0 44 22 4 0 2 1 0]0\n",
+            "[1.0 0.0 0.0 0.0 0.0 1.0 0.0 0.0 0.0 54 37 1 0 2 0 0]0\n",
+            "[0.0 0.0 1.0 0.0 0.0 1.0 0.0 0.0 0.0 34 22 1 0 3 0 1]1\n",
+            "[1.0 0.0 0.0 0.0 0.0 1.0 0.0 0.0 0.0 64 32 1 0 1 1 0]0\n",
+            "[1.0 0.0 0.0 0.0 1.0 0.0 0.0 0.0 0.0 64 27 1 0 3 1 0]0\n",
+            "[1.0 0.0 0.0 0.0 0.0 1.0 0.0 0.0 0.0 44 32 1 0 2 0 1]0\n",
+            "[0.0 0.0 1.0 0.0 1.0 0.0 0.0 0.0 0.0 34 27 1 0 2 0 0]0\n",
+            "[0.0 0.0 1.0 0.0 1.0 0.0 0.0 0.0 0.0 44 22 1 0 2 0 0]1\n",
+            "[0.0 0.0 1.0 0.0 0.0 0.0 0.0 1.0 0.0 34 22 1 0 2 0 0]0\n",
+            "[0.0 0.0 1.0 0.0 1.0 0.0 0.0 0.0 0.0 44 12 1 0 2 1 0]0\n",
+            "[0.0 0.0 1.0 0.0 0.0 0.0 0.0 1.0 0.0 54 17 1 0 2 1 0]0\n",
+            "[0.0 0.0 1.0 0.0 0.0 1.0 0.0 0.0 0.0 54 27 1 0 1 1 0]0\n",
+            "[1.0 0.0 0.0 0.0 0.0 1.0 0.0 0.0 0.0 64 22 1 0 2 1 0]0\n",
+            "[1.0 0.0 0.0 0.0 1.0 0.0 0.0 0.0 0.0 64 42 1 0 2 1 0]1\n",
+            "[0.0 1.0 0.0 0.0 0.0 1.0 0.0 0.0 0.0 34 17 1 0 3 1 0]0\n",
+            "[0.0 0.0 1.0 0.0 0.0 1.0 0.0 0.0 0.0 44 32 13 1 3 0 1]1\n",
+            "[1.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 1.0 64 32 1 1 2 1 1]1\n",
+            "[1.0 0.0 0.0 0.0 1.0 0.0 0.0 0.0 0.0 54 42 7 1 3 0 1]1\n",
+            "[1.0 0.0 0.0 0.0 0.0 0.0 1.0 0.0 0.0 54 32 1 0 3 0 0]1\n",
+            "[1.0 0.0 0.0 1.0 0.0 0.0 0.0 0.0 0.0 74 12 1 0 2 0 0]0\n",
+            "[0.0 0.0 1.0 0.0 1.0 0.0 0.0 0.0 0.0 34 42 1 0 2 0 1]0\n",
+            "[0.0 0.0 1.0 0.0 0.0 0.0 0.0 1.0 0.0 44 32 1 0 2 1 0]0\n",
+            "[0.0 0.0 1.0 0.0 1.0 0.0 0.0 0.0 0.0 44 32 1 0 1 0 0]0\n",
+            "[1.0 0.0 0.0 0.0 1.0 0.0 0.0 0.0 0.0 64 17 1 0 2 0 0]0\n",
+            "[0.0 0.0 1.0 0.0 1.0 0.0 0.0 0.0 0.0 44 12 1 0 2 0 0]0\n",
+            "[1.0 0.0 0.0 0.0 1.0 0.0 0.0 0.0 0.0 64 22 1 0 1 0 0]0\n",
+            "[1.0 0.0 0.0 0.0 0.0 1.0 0.0 0.0 0.0 54 12 1 0 1 0 0]0\n",
+            "[0.0 0.0 1.0 0.0 1.0 0.0 0.0 0.0 0.0 54 27 1 0 1 0 0]0\n",
+            "[1.0 0.0 0.0 0.0 0.0 0.0 0.0 1.0 0.0 54 32 10 1 3 0 1]1\n",
+            "[1.0 0.0 0.0 0.0 1.0 0.0 0.0 0.0 0.0 54 12 1 0 2 0 0]0\n",
+            "[0.0 0.0 1.0 0.0 0.0 0.0 0.0 0.0 1.0 44 32 1 0 1 0 0]0\n",
+            "[1.0 0.0 0.0 0.0 0.0 0.0 0.0 1.0 0.0 74 2 1 0 1 0 0]0\n",
+            "[0.0 0.0 1.0 0.0 0.0 1.0 0.0 0.0 0.0 44 27 1 0 3 1 1]0\n",
+            "[0.0 0.0 1.0 0.0 1.0 0.0 0.0 0.0 0.0 54 27 1 0 3 1 1]1\n",
+            "[1.0 0.0 0.0 0.0 1.0 0.0 0.0 0.0 0.0 54 42 1 0 2 0 0]0\n",
+            "[1.0 0.0 0.0 0.0 0.0 0.0 0.0 1.0 0.0 64 27 1 0 3 0 1]1\n",
+            "[0.0 0.0 1.0 0.0 1.0 0.0 0.0 0.0 0.0 44 32 4 1 2 1 0]0\n",
+            "[1.0 0.0 0.0 0.0 0.0 1.0 0.0 0.0 0.0 54 22 1 0 2 0 0]1\n",
+            "[1.0 0.0 0.0 0.0 0.0 1.0 0.0 0.0 0.0 74 22 1 0 3 0 0]0\n",
+            "[0.0 0.0 1.0 1.0 0.0 0.0 0.0 0.0 0.0 34 27 1 0 1 0 0]0\n",
+            "[1.0 0.0 0.0 0.0 1.0 0.0 0.0 0.0 0.0 64 32 1 0 2 0 0]0\n",
+            "[0.0 0.0 1.0 0.0 0.0 0.0 0.0 0.0 1.0 44 22 4 1 2 1 1]1\n",
+            "[1.0 0.0 0.0 0.0 1.0 0.0 0.0 0.0 0.0 54 32 10 0 3 0 1]0\n",
+            "[1.0 0.0 0.0 1.0 0.0 0.0 0.0 0.0 0.0 54 2 1 0 2 0 0]0\n",
+            "[0.0 0.0 1.0 0.0 1.0 0.0 0.0 0.0 0.0 44 22 1 0 3 1 1]0\n",
+            "[0.0 0.0 1.0 0.0 1.0 0.0 0.0 0.0 0.0 34 37 1 0 3 0 0]1\n",
+            "[1.0 0.0 0.0 0.0 0.0 1.0 0.0 0.0 0.0 64 32 1 0 1 0 0]0\n",
+            "[1.0 0.0 0.0 0.0 1.0 0.0 0.0 0.0 0.0 64 22 1 0 1 0 0]0\n",
+            "[1.0 0.0 0.0 0.0 1.0 0.0 0.0 0.0 0.0 54 27 7 0 3 0 1]1\n",
+            "[0.0 0.0 1.0 0.0 0.0 0.0 0.0 0.0 1.0 54 37 16 1 3 1 0]1\n",
+            "[0.0 0.0 1.0 0.0 0.0 1.0 0.0 0.0 0.0 34 22 4 1 2 1 1]0\n",
+            "[0.0 0.0 1.0 0.0 1.0 0.0 0.0 0.0 0.0 44 22 7 0 2 1 1]0\n",
+            "[1.0 0.0 0.0 0.0 1.0 0.0 0.0 0.0 0.0 54 37 1 0 3 0 0]0\n",
+            "[0.0 0.0 1.0 0.0 0.0 1.0 0.0 0.0 0.0 54 37 1 0 2 1 0]0\n",
+            "[0.0 0.0 1.0 0.0 0.0 1.0 0.0 0.0 0.0 44 27 1 0 2 0 1]0\n",
+            "[0.0 0.0 1.0 0.0 0.0 0.0 0.0 0.0 1.0 44 37 1 0 2 1 0]0\n",
+            "[0.0 0.0 1.0 0.0 1.0 0.0 0.0 0.0 0.0 54 32 4 1 2 0 1]0\n",
+            "[0.0 0.0 1.0 0.0 0.0 0.0 0.0 0.0 1.0 44 22 1 0 2 1 0]0\n",
+            "[1.0 0.0 0.0 0.0 0.0 1.0 0.0 0.0 0.0 64 17 1 0 3 1 1]0\n",
+            "[1.0 0.0 0.0 0.0 1.0 0.0 0.0 0.0 0.0 54 32 7 1 2 0 0]0\n",
+            "[0.0 0.0 1.0 0.0 1.0 0.0 0.0 0.0 0.0 54 27 4 1 2 0 1]0\n",
+            "[0.0 0.0 1.0 0.0 0.0 0.0 0.0 0.0 1.0 34 32 7 1 2 1 0]0\n",
+            "[0.0 0.0 1.0 0.0 1.0 0.0 0.0 0.0 0.0 54 17 1 0 2 1 0]0\n",
+            "[1.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 1.0 54 42 1 0 3 0 0]0\n"
+          ]
+        }
+      ]
+    },
+    {
+      "cell_type": "code",
+      "execution_count": null,
+      "metadata": {
+        "id": "Mm5vxSA0qmuj"
+      },
+      "outputs": [],
+      "source": [
+        "# Split your data so that you can test the effectiveness of your model\n",
+        "from sklearn.model_selection import train_test_split\n",
+        "X_train, X_test, y_train, y_test = train_test_split(X, y, test_size = 0.2, random_state = 0)\n",
+        "\n",
+        "from sklearn.preprocessing import StandardScaler\n",
+        "sc = StandardScaler()\n",
+        "X_train = sc.fit_transform(X_train)\n",
+        "X_test = sc.transform(X_test)\n"
+      ]
+    },
+    {
+      "cell_type": "markdown",
+      "source": [
+        "Below I test mutliple models step by step to find the one best suited to this dataset. The highest accuracy I achieve is 76%."
+      ],
+      "metadata": {
+        "id": "5AqyDE-4OHXg"
+      }
+    },
+    {
+      "cell_type": "code",
+      "source": [
+        "from sklearn.metrics import confusion_matrix, accuracy_score\n",
+        "\n",
+        "def checkAccuracy(y_test, y_pred):\n",
+        "  return [accuracy_score(y_test, y_pred), confusion_matrix(y_test, y_pred)]\n",
+        "\n",
+        "\n",
+        "classifiers = []"
+      ],
+      "metadata": {
+        "id": "0hA4Rn2aV8D4"
+      },
+      "execution_count": null,
+      "outputs": []
+    },
+    {
+      "cell_type": "code",
+      "source": [
+        "from sklearn.tree import DecisionTreeClassifier\n",
+        "classifier = DecisionTreeClassifier(criterion = 'entropy', random_state = 1)\n",
+        "classifier.fit(X_train, y_train)\n",
+        "y_pred = classifier.predict(X_test)\n",
+        "\n",
+        "classifiers.append([\"Decision Tree\", checkAccuracy(y_test, classifier.predict(X_test)), classifier])"
+      ],
+      "metadata": {
+        "id": "zLoeGWq5xtof"
+      },
+      "execution_count": null,
+      "outputs": []
+    },
+    {
+      "cell_type": "code",
+      "source": [
+        "from sklearn.neighbors import KNeighborsClassifier\n",
+        "classifier = KNeighborsClassifier(n_neighbors = 10, metric = 'minkowski', p = 1)\n",
+        "classifier.fit(X_train, y_train)\n",
+        "\n",
+        "y_pred = classifier.predict(X_test)\n",
+        "\n",
+        "classifiers.append([\"K Nearest Neighbors\", checkAccuracy(y_test, classifier.predict(X_test)), classifier])"
+      ],
+      "metadata": {
+        "id": "x9-heqAwx8I3"
+      },
+      "execution_count": null,
+      "outputs": []
+    },
+    {
+      "cell_type": "code",
+      "source": [
+        "from sklearn.linear_model import LogisticRegression\n",
+        "classifier = LogisticRegression()\n",
+        "classifier.fit(X_train, y_train)\n",
+        "\n",
+        "classifiers.append([\"Logistic Classifer\", checkAccuracy(y_test, classifier.predict(X_test)), classifier])"
+      ],
+      "metadata": {
+        "id": "pnw8laCFnCTD"
+      },
+      "execution_count": null,
+      "outputs": []
+    },
+    {
+      "cell_type": "code",
+      "source": [
+        "from sklearn.svm import SVC\n",
+        "classifier = SVC(kernel = 'rbf', random_state = 0)\n",
+        "classifier.fit(X_train, y_train)\n",
+        "\n",
+        "classifiers.append([\"SVC\", checkAccuracy(y_test, classifier.predict(X_test)), classifier])"
+      ],
+      "metadata": {
+        "id": "w3IKNYXNyOA2"
+      },
+      "execution_count": null,
+      "outputs": []
+    },
+    {
+      "cell_type": "code",
+      "source": [
+        "from sklearn.ensemble import RandomForestClassifier\n",
+        "# 0.7586206896551724 \n",
+        "classifier = RandomForestClassifier(n_estimators = 10, criterion = 'entropy', random_state = 1, bootstrap=True)\n",
+        "classifier.fit(X_train, y_train)\n",
+        "\n",
+        "print(checkAccuracy(y_test, classifier.predict(X_test)))\n",
+        "classifiers.append([\"Random Forest\", checkAccuracy(y_test, classifier.predict(X_test)), classifier])\n"
+      ],
+      "metadata": {
+        "id": "5DN_kINIwJeJ",
+        "colab": {
+          "base_uri": "https://localhost:8080/"
+        },
+        "outputId": "1492cb95-fc88-4922-ff22-4eae625e7ed7"
+      },
+      "execution_count": null,
+      "outputs": [
+        {
+          "output_type": "stream",
+          "name": "stdout",
+          "text": [
+            "[0.7586206896551724, array([[34,  2],\n",
+            "       [12, 10]])]\n"
+          ]
+        }
+      ]
+    },
+    {
+      "cell_type": "code",
+      "source": [
+        "from sklearn.naive_bayes import GaussianNB\n",
+        "classifier = GaussianNB()\n",
+        "classifier.fit(X_train, y_train)\n",
+        "\n",
+        "classifiers.append([\"Guassian Naive Bayes\", checkAccuracy(y_test, classifier.predict(X_test)), classifier])"
+      ],
+      "metadata": {
+        "id": "-OeIhVA-xW-T"
+      },
+      "execution_count": null,
+      "outputs": []
+    },
+    {
+      "cell_type": "code",
+      "source": [
+        "from sklearn.ensemble import GradientBoostingClassifier\n",
+        "classifier = GradientBoostingClassifier(n_estimators=10, learning_rate=1.0, max_depth=1, random_state=0)\n",
+        "classifier.fit(X_train, y_train)\n",
+        "\n",
+        "classifiers.append([\"Gradient Boosting\", checkAccuracy(y_test, classifier.predict(X_test)), classifier])"
+      ],
+      "metadata": {
+        "id": "TMxhSYkq7btL"
+      },
+      "execution_count": null,
+      "outputs": []
+    },
+    {
+      "cell_type": "code",
+      "source": [
+        "from sklearn.dummy import DummyClassifier\n",
+        "classifier = DummyClassifier(strategy=\"most_frequent\")\n",
+        "classifier.fit(X_train, y_train)\n",
+        "\n",
+        "classifiers.append([\"Dummy\", checkAccuracy(y_test, classifier.predict(X_test)), classifier])"
+      ],
+      "metadata": {
+        "id": "ZiXcWMeGItwZ"
+      },
+      "execution_count": null,
+      "outputs": []
+    },
+    {
+      "cell_type": "code",
+      "execution_count": null,
+      "metadata": {
+        "id": "KWKLj-RYqmum"
+      },
+      "outputs": [],
+      "source": [
+        "# Asssess the accuracy of your model and explain your key findings"
+      ]
+    },
+    {
+      "cell_type": "code",
+      "source": [
+        "for i, item in enumerate(classifiers):\n",
+        "  print(str(i) + \": \" + item[0] + \": \" + str(round(item[1][0]*100, 5)) +\"%\")\n",
+        "  print(item[1][1])\n",
+        "  print()"
+      ],
+      "metadata": {
+        "colab": {
+          "base_uri": "https://localhost:8080/"
+        },
+        "id": "Z9tYEx1R-GGe",
+        "outputId": "44b2121d-a253-4b27-c47b-876e6141354b"
+      },
+      "execution_count": null,
+      "outputs": [
+        {
+          "output_type": "stream",
+          "name": "stdout",
+          "text": [
+            "0: Decision Tree: 63.7931%\n",
+            "[[27  9]\n",
+            " [12 10]]\n",
+            "\n",
+            "1: K Nearest Neighbors: 70.68966%\n",
+            "[[36  0]\n",
+            " [17  5]]\n",
+            "\n",
+            "2: Logistic Classifer: 70.68966%\n",
+            "[[35  1]\n",
+            " [16  6]]\n",
+            "\n",
+            "3: SVC: 70.68966%\n",
+            "[[36  0]\n",
+            " [17  5]]\n",
+            "\n",
+            "4: Random Forest: 75.86207%\n",
+            "[[34  2]\n",
+            " [12 10]]\n",
+            "\n",
+            "5: Guassian Naive Bayes: 74.13793%\n",
+            "[[34  2]\n",
+            " [13  9]]\n",
+            "\n",
+            "6: Gradient Boosting: 74.13793%\n",
+            "[[33  3]\n",
+            " [12 10]]\n",
+            "\n",
+            "7: Dummy: 62.06897%\n",
+            "[[36  0]\n",
+            " [22  0]]\n",
+            "\n"
+          ]
+        }
+      ]
+    },
+    {
+      "cell_type": "markdown",
+      "source": [
+        "# Evaluating Model Performance\n",
+        "\n",
+        "\n",
+        "I identify that the Random Forest Classifer is my best model so far. The confusion matrix shows that I'm getting a high number of false negatives. I do a bit of digging into my model to analyse the performance of my model"
+      ],
+      "metadata": {
+        "id": "8Q9HYTLXBLuh"
+      }
+    },
+    {
+      "cell_type": "code",
+      "source": [
+        "from sklearn.metrics import classification_report\n",
+        "\n",
+        "print(\"Best Model: \" + classifiers[4][0])\n",
+        "print(classification_report(y_test, classifiers[4][2].predict(X_test)))\n",
+        "\n",
+        "print(\"Dummy Model (Baseline):  \")\n",
+        "print(classification_report(y_test, classifiers[7][2].predict(X_test)))"
+      ],
+      "metadata": {
+        "colab": {
+          "base_uri": "https://localhost:8080/"
+        },
+        "id": "y6EAol8qBhD2",
+        "outputId": "42299f14-8bca-46ce-8f28-19d1dabbb2a6"
+      },
+      "execution_count": null,
+      "outputs": [
+        {
+          "output_type": "stream",
+          "name": "stdout",
+          "text": [
+            "Best Model: Random Forest\n",
+            "              precision    recall  f1-score   support\n",
+            "\n",
+            "           0       0.74      0.94      0.83        36\n",
+            "           1       0.83      0.45      0.59        22\n",
+            "\n",
+            "    accuracy                           0.76        58\n",
+            "   macro avg       0.79      0.70      0.71        58\n",
+            "weighted avg       0.77      0.76      0.74        58\n",
+            "\n",
+            "Dummy Model (Baseline):  \n",
+            "              precision    recall  f1-score   support\n",
+            "\n",
+            "           0       0.62      1.00      0.77        36\n",
+            "           1       0.00      0.00      0.00        22\n",
+            "\n",
+            "    accuracy                           0.62        58\n",
+            "   macro avg       0.31      0.50      0.38        58\n",
+            "weighted avg       0.39      0.62      0.48        58\n",
+            "\n"
+          ]
+        },
+        {
+          "output_type": "stream",
+          "name": "stderr",
+          "text": [
+            "/usr/local/lib/python3.7/dist-packages/sklearn/metrics/_classification.py:1318: UndefinedMetricWarning: Precision and F-score are ill-defined and being set to 0.0 in labels with no predicted samples. Use `zero_division` parameter to control this behavior.\n",
+            "  _warn_prf(average, modifier, msg_start, len(result))\n",
+            "/usr/local/lib/python3.7/dist-packages/sklearn/metrics/_classification.py:1318: UndefinedMetricWarning: Precision and F-score are ill-defined and being set to 0.0 in labels with no predicted samples. Use `zero_division` parameter to control this behavior.\n",
+            "  _warn_prf(average, modifier, msg_start, len(result))\n",
+            "/usr/local/lib/python3.7/dist-packages/sklearn/metrics/_classification.py:1318: UndefinedMetricWarning: Precision and F-score are ill-defined and being set to 0.0 in labels with no predicted samples. Use `zero_division` parameter to control this behavior.\n",
+            "  _warn_prf(average, modifier, msg_start, len(result))\n"
+          ]
+        }
+      ]
+    },
+    {
+      "cell_type": "markdown",
+      "source": [
+        "For this model, 0s represent non-recurrence events and 1s represent recurrence events.\n",
+        "\n",
+        "My model is quite precise when predicting recurrence events. It also has a very good recall for non-recurrence events. \n",
+        "\n",
+        "\n",
+        "I would like to create a better model for this problem but I believe any futher processing would create an over fitted model. Perhaps a larger dataset would help to improve accuracy.\n",
+        "\n",
+        "As you can see above, the dummy model - which predicts zero every time - performs with 62% accuracy."
+      ],
+      "metadata": {
+        "id": "5CbSjCe3FALV"
+      }
+    }
+  ],
+  "metadata": {
+    "kernelspec": {
+      "display_name": "Python 3",
+      "language": "python",
+      "name": "python3"
+    },
+    "language_info": {
+      "codemirror_mode": {
+        "name": "ipython",
+        "version": 3
+      },
+      "file_extension": ".py",
+      "mimetype": "text/x-python",
+      "name": "python",
+      "nbconvert_exporter": "python",
+      "pygments_lexer": "ipython3",
+      "version": "3.6.10"
+    },
+    "colab": {
+      "provenance": [],
+      "include_colab_link": true
+    }
+  },
+  "nbformat": 4,
+  "nbformat_minor": 0
+}
